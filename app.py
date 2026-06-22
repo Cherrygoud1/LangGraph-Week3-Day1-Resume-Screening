@@ -1,131 +1,130 @@
 from typing import TypedDict
-
-from langgraph.graph import (
-    StateGraph,
-    END
-)
+from langgraph.graph import StateGraph, END
 
 
-# ==========================
-# STATE
-# ==========================
-
-class JobState(TypedDict):
-
-    name: str
-    role: str
+class ResumeState(TypedDict):
+    candidate_name: str
     experience_years: int
+    attempts: int
     decision: str
 
 
-# ==========================
-# NODE 1
-# ==========================
-
-def receive_application(state):
-
-    print("\nReceiving Application...")
-
-    print(f"Name : {state['name']}")
-    print(f"Role : {state['role']}")
-
-    return {
-        "name": state["name"],
-        "role": state["role"]
-    }
-
-
-# ==========================
-# NODE 2
-# ==========================
-
 def screen_resume(state):
 
-    print("\nScreening Resume...")
-
-    if state["experience_years"] > 2:
-
-        return {
-            "decision": "Selected"
-        }
-
-    return {
-        "decision": "Rejected"
-    }
-
-
-# ==========================
-# NODE 3
-# ==========================
-
-def send_decision(state):
-
-    print("\nSending Decision...")
+    print(
+        f"\nScreening Resume..."
+    )
 
     print(
-        f"Candidate "
-        f"{state['name']} "
-        f"is "
-        f"{state['decision']}"
+        f"Experience: {state['experience_years']} Years"
     )
 
     return state
 
 
-# ==========================
-# GRAPH
-# ==========================
+def improve_resume(state):
 
-builder = StateGraph(JobState)
+    print(
+        "\nImproving Resume..."
+    )
 
-builder.add_node(
-    "receive_application",
-    receive_application
+    state["experience_years"] += 1
+    state["attempts"] += 1
+
+    return state
+
+
+def shortlisted(state):
+
+    print(
+        "\nCandidate Shortlisted"
+    )
+
+    state["decision"] = "Selected"
+
+    return state
+
+
+def rejected(state):
+
+    print(
+        "\nCandidate Rejected"
+    )
+
+    state["decision"] = "Rejected"
+
+    return state
+
+
+def route_resume(state):
+
+    if state["experience_years"] >= 3:
+        return "selected"
+
+    if state["attempts"] >= 3:
+        return "rejected"
+
+    return "improve"
+
+
+builder = StateGraph(
+    ResumeState
 )
 
 builder.add_node(
-    "screen_resume",
+    "screen",
     screen_resume
 )
 
 builder.add_node(
-    "send_decision",
-    send_decision
+    "improve",
+    improve_resume
+)
+
+builder.add_node(
+    "selected",
+    shortlisted
+)
+
+builder.add_node(
+    "rejected",
+    rejected
 )
 
 builder.set_entry_point(
-    "receive_application"
+    "screen"
+)
+
+builder.add_conditional_edges(
+    "screen",
+    route_resume
 )
 
 builder.add_edge(
-    "receive_application",
-    "screen_resume"
+    "improve",
+    "screen"
 )
 
 builder.add_edge(
-    "screen_resume",
-    "send_decision"
+    "selected",
+    END
 )
 
 builder.add_edge(
-    "send_decision",
+    "rejected",
     END
 )
 
 graph = builder.compile()
 
-
-# ==========================
-# INPUT
-# ==========================
-
 result = graph.invoke(
     {
-        "name": "Charan",
-        "role": "Data Analyst",
-        "experience_years": 3
+        "candidate_name": "Charan",
+        "experience_years": 1,
+        "attempts": 0,
+        "decision": ""
     }
 )
 
-print("\nFinal State:")
+print("\nFinal Output:")
 print(result)
